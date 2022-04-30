@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 import validator from "validator";
 
 const UserModel = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
   email: {
     type: String,
     required: true,
@@ -21,4 +25,4 @@ const UserModel = new mongoose.Schema({
   role: { type: String, required: true },
 });
 
-export default mongoose.model("User", UserModel);
+export default mongoose.model("User", UserModel, "users");

@@ -1,0 +1,21 @@
+import { Request, Response, NextFunction } from "express";
+import { verify } from "jsonwebtoken";
+
+export function ensureAuthenticated(
+  request: Request,
+  response: Response,
+  next: NextFunction,
+): void {
+  const authHeader = request.headers.authorization;
+  if (!authHeader) throw new Error("Não autenticado!");
+  const [, token] = authHeader.split(" ");
+
+  try {
+    const decoded = verify(token, `${process.env.JWT_SECRET}`);
+    response.locals.userId = decoded.sub;
+    response.locals.token = token;
+    next();
+  } catch {
+    throw new Error("Token inválido ou expirado!");
+  }
+}

@@ -2,12 +2,15 @@ import { hash } from "bcrypt";
 
 import { IRoles } from "../../enums/Roles";
 import { IMailProvider } from "../../providers/IMailProvider";
+import { IHotmartTokenRepository } from "../../repositories/IHotmartTokenRepository";
 import { IUsersRepository } from "../../repositories/IUsersRepository";
-import { IApprovedPurchase } from "./AprovedPurchaseDTO";
+import { checkSubscription } from "../../utils/checkSubscription";
+import { IApprovedPurchase } from "./ApprovedPurchaseDTO";
 
 export class ApprovedPurchaseUseCase {
   constructor(
     private mongoUsersRepository: IUsersRepository,
+    private mongoHotmartTokenRepository: IHotmartTokenRepository,
     private mailProvider: IMailProvider,
   ) {}
 
@@ -28,8 +31,24 @@ export class ApprovedPurchaseUseCase {
       throw new Error("Hot tok inválido.");
     if (!isValidRole) throw new Error("Cargo Inválido.");
 
+    const hotmartData = await this.mongoHotmartTokenRepository.findByKey("1");
+    if (!hotmartData) throw new Error("Erro interno.");
+    const { data: subscriptionData, newToken } = await checkSubscription(
+      hotmartData.token,
+      subscriberCode,
+    );
+
+    if (!subscriptionData) throw new Error("Erro interno.");
+    if (hotmartData.token !== newToken) {
+      await this.mongoHotmartTokenRepository.updateToken(
+        hotmartData._id,
+        newToken as string,
+      );
+    }
+
     const passwordHashed = await hash(password, 8);
     const userCreated = await this.mongoUsersRepository.createUser({
+      name: subscriptionData.subscriber.name,
       email,
       password: passwordHashed,
       role,
@@ -39,7 +58,7 @@ export class ApprovedPurchaseUseCase {
 
     await this.mailProvider.sendMail({
       to: {
-        name: email,
+        name: subscriptionData.subscriber.name,
         email,
       },
       from: {
